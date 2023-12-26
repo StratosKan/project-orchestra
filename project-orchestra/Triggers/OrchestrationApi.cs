@@ -15,6 +15,7 @@ namespace project_orchestra.Triggers
 {
     public class OrchestrationApi
     {
+        public const string STARTER_NAME = nameof(StartInstance);
 
         private readonly ILogger<OrchestrationApi> _logger;
 
@@ -23,9 +24,9 @@ namespace project_orchestra.Triggers
             _logger = log;
         }
 
-        [FunctionName("Function1")]
+        [FunctionName(STARTER_NAME)]
         public async Task<IActionResult> StartInstance(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req, [DurableClient] IDurableOrchestrationClient orchestrator) //authorization not implemented yet...
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req, [DurableClient] IDurableOrchestrationClient orchestrator, ExecutionContext ctx) //authorization not implemented yet...
         {
             _logger.LogInformation("OrchestratorApi - StartInstance function processed a request.");
 
@@ -41,10 +42,14 @@ namespace project_orchestra.Triggers
                 {
                     return new BadRequestResult();
                 }
+                string orchestrationName = command.FunctionName + "Orchestration";
 
-                string instanceId = await orchestrator.StartNewAsync(command.FunctionName, command);
+                string instanceId = await orchestrator.StartNewAsync(orchestrationName, command);
 
-                return orchestrator.CreateCheckStatusResponse(req, instanceId);
+                var managementPayload = orchestrator.CreateHttpManagementPayload(instanceId);
+
+                return new AcceptedResult(instanceId, managementPayload);
+                //return orchestrator.CreateCheckStatusResponse(req, instanceId);
             }
             catch(Exception ex) 
             {
